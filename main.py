@@ -1,22 +1,30 @@
 from fastapi import FastAPI, Request, Form, File, UploadFile, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import os
-from utils import generate_short_id, save_text_paste, save_upload_file, get_file_content, UPLOAD_DIR
+from utils import generate_short_id, save_text_paste, save_upload_file, get_file_content, find_file, get_public_url
+from config import STORAGE_BACKEND, LOCAL_UPLOAD_DIR
 
-app = FastAPI(title="Pastebin Clone")
+app = FastAPI(title="Easy Share")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# Mount uploads only for local storage
+if STORAGE_BACKEND == "local":
+    if not os.path.exists(LOCAL_UPLOAD_DIR):
+        os.makedirs(LOCAL_UPLOAD_DIR)
+    app.mount("/uploads", StaticFiles(directory=LOCAL_UPLOAD_DIR), name="uploads")
 
 # Setup templates
 templates = Jinja2Templates(directory="templates")
 
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
 
 @app.post("/api/upload")
 async def upload_paste(
@@ -33,8 +41,6 @@ async def upload_paste(
         ext = os.path.splitext(file.filename)[1]
         filename = f"{short_id}{ext}"
         await save_upload_file(file, filename)
-        is_image = file.content_type.startswith("image/") if file.content_type else False
-        # Save metadata or just rely on extension/content inspection in view
     else:
         # It's a text paste
         filename = f"{short_id}.txt"
@@ -42,32 +48,23 @@ async def upload_paste(
 
     return {"url": f"/{short_id}", "id": short_id}
 
+
 @app.get("/{paste_id}", response_class=HTMLResponse)
 async def view_paste(request: Request, paste_id: str):
-    # Simple lookup logic - in a real app, use a DB to map ID to filename/type
-    # Here we search for files starting with the ID in the upload dir
+    # Find the file in storage
+    found_file = find_file(paste_id)
     
-    found_file = None
-    for f in os.listdir(UPLOAD_DIR):
-        if f.startswith(paste_id + ".") or f == paste_id:
-            found_file = f
-            break
-            
     if not found_file:
         raise HTTPException(status_code=404, detail="Paste not found")
-        
+    
     content, type_ = get_file_content(found_file)
     
     is_image = False
     if type_ == "binary":
-        # Assume it's an image if it was uploaded and we treated it as binary or based on extension
         ext = os.path.splitext(found_file)[1].lower()
         if ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp']:
             is_image = True
-            content = f"/uploads/{found_file}"
-        else:
-             # Fallback for other file types or force download? For now, treat as text or generic link
-             pass
+            content = get_public_url(found_file)
 
     return templates.TemplateResponse("view.html", {
         "request": request,

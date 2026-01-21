@@ -3,3 +3,5 @@ uvicorn
 python-multipart
 jinja2
 aiofiles
+google-cloud-storage
+python-dotenv
