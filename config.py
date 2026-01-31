@@ -8,6 +8,7 @@ STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "local")
 
 # Google Cloud Storage settings
 GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME", "")
+GCS_CREDENTIALS_JSON = os.getenv("GCS_CREDENTIALS_JSON")
 
 # Local storage directory (fallback)
 LOCAL_UPLOAD_DIR = "uploads"

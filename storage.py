@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Optional, List
 from fastapi import UploadFile
 
-from config import STORAGE_BACKEND, GCS_BUCKET_NAME, LOCAL_UPLOAD_DIR
+from config import STORAGE_BACKEND, GCS_BUCKET_NAME, LOCAL_UPLOAD_DIR, GCS_CREDENTIALS_JSON
 
 
 class StorageBackend(ABC):
@@ -98,7 +98,23 @@ class GCSStorage(StorageBackend):
     
     def __init__(self):
         from google.cloud import storage
-        self.client = storage.Client()
+        from google.oauth2 import service_account
+        import json
+
+        if GCS_CREDENTIALS_JSON:
+             try:
+                creds_dict = json.loads(GCS_CREDENTIALS_JSON)
+                credentials = service_account.Credentials.from_service_account_info(creds_dict)
+                self.client = storage.Client(credentials=credentials)
+             except json.JSONDecodeError:
+                 print("Error: Failed to decode GCS_CREDENTIALS_JSON")
+                 self.client = storage.Client()
+             except Exception as e:
+                 print(f"Error initializing GCS client with credentials: {e}")
+                 self.client = storage.Client()
+        else:
+            self.client = storage.Client()
+            
         self.bucket = self.client.bucket(GCS_BUCKET_NAME)
     
     def upload_file(self, filename: str, content: bytes, content_type: str) -> str:
