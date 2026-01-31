@@ -120,13 +120,15 @@ class GCSStorage(StorageBackend):
     def upload_file(self, filename: str, content: bytes, content_type: str) -> str:
         blob = self.bucket.blob(filename)
         blob.upload_from_string(content, content_type=content_type)
-        blob.make_public()
+        blob.upload_from_string(content, content_type=content_type)
+        # blob.make_public()  <-- disabled for Uniform Bucket Level Access
         return blob.public_url
     
     def upload_text(self, filename: str, text: str) -> str:
         blob = self.bucket.blob(filename)
         blob.upload_from_string(text.encode("utf-8"), content_type="text/plain")
-        blob.make_public()
+        blob.upload_from_string(text.encode("utf-8"), content_type="text/plain")
+        # blob.make_public()  <-- disabled for Uniform Bucket Level Access
         return blob.public_url
     
     def get_file_content(self, filename: str) -> Tuple[Optional[str], str]:
