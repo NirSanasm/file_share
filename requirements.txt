@@ -5,3 +5,6 @@ jinja2
 aiofiles
 google-cloud-storage
 python-dotenv
+python-magic
+python-magic-bin
+requests

@@ -12,3 +12,7 @@ GCS_CREDENTIALS_JSON = os.getenv("GCS_CREDENTIALS_JSON")
 
 # Local storage directory (fallback)
 LOCAL_UPLOAD_DIR = "uploads"
+
+# Google reCAPTCHA settings
+RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY", "")
+RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY", "")

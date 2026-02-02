@@ -8,6 +8,9 @@
     <link rel="stylesheet" href="/static/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono&display=swap"
         rel="stylesheet">
+    {% if recaptcha_site_key %}
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    {% endif %}
 </head>
 
 <body>
@@ -44,6 +47,9 @@
             </div>
 
             <div class="actions">
+                {% if recaptcha_site_key %}
+                <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+                {% endif %}
                 <button id="paste-btn" class="btn btn-primary shimmer">Create Paste</button>
             </div>
         </main>

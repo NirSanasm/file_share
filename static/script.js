@@ -64,6 +64,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Check if CAPTCHA widget exists and get the response
+            const captchaWidget = document.querySelector('.g-recaptcha');
+            let recaptchaResponse = null;
+
+            if (captchaWidget) {
+                // Wait a moment for grecaptcha to be ready
+                if (typeof grecaptcha !== 'undefined' && grecaptcha.getResponse) {
+                    recaptchaResponse = grecaptcha.getResponse();
+
+                    if (!recaptchaResponse) {
+                        showToast('Please complete the CAPTCHA verification.', 'error');
+                        return;
+                    }
+                } else {
+                    showToast('CAPTCHA not loaded. Please refresh the page.', 'error');
+                    return;
+                }
+            }
+
             pasteBtn.disabled = true;
             pasteBtn.textContent = 'Uploading...';
 
@@ -75,6 +94,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('text', textArea.value);
             }
 
+            // Add CAPTCHA response if we got it earlier
+            if (recaptchaResponse) {
+                formData.append('g-recaptcha-response', recaptchaResponse);
+            }
+
             try {
                 const response = await fetch('/api/upload', {
                     method: 'POST',
@@ -83,16 +107,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (response.ok) {
                     const data = await response.json();
+                    // Show expiration info
+                    if (data.expires_in_days) {
+                        showToast(`Upload successful! File will expire in ${data.expires_in_days} days.`);
+                    }
                     window.location.href = data.url;
                 } else {
-                    const err = await response.text();
-                    showToast('Error: ' + err);
+                    // Handle different error types
+                    const contentType = response.headers.get('content-type');
+                    let errorMessage = 'Upload failed';
+
+                    if (contentType && contentType.includes('application/json')) {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail || errorData.message || errorData.error || errorMessage;
+
+                        // Show retry info for rate limits
+                        if (response.status === 429 && errorData.retry_after) {
+                            const minutes = Math.ceil(errorData.retry_after / 60);
+                            errorMessage += ` Please try again in ${minutes} minute(s).`;
+                        }
+                    } else {
+                        const errorText = await response.text();
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            errorMessage = errorJson.detail || errorMessage;
+                        } catch {
+                            errorMessage = errorText || errorMessage;
+                        }
+                    }
+
+                    showToast(errorMessage, 'error');
+
+                    // Reset CAPTCHA on error
+                    if (typeof grecaptcha !== 'undefined') {
+                        grecaptcha.reset();
+                    }
+
                     pasteBtn.disabled = false;
                     pasteBtn.textContent = 'Create Paste';
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showToast('Upload failed.');
+                showToast('Network error. Please check your connection.', 'error');
+
+                // Reset CAPTCHA on error
+                if (typeof grecaptcha !== 'undefined') {
+                    grecaptcha.reset();
+                }
+
                 pasteBtn.disabled = false;
                 pasteBtn.textContent = 'Create Paste';
             }
@@ -110,9 +172,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Toast Notification
-    function showToast(message) {
+    function showToast(message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = 'toast';
+        if (type === 'error') {
+            toast.classList.add('toast-error');
+        }
         toast.textContent = message;
         document.body.appendChild(toast);
 
@@ -126,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 document.body.removeChild(toast);
             }, 300);
-        }, 3000);
+        }, type === 'error' ? 5000 : 3000); // Show errors longer
     }
 });
 
@@ -142,3 +207,18 @@ function copyToClipboard() {
         }, 2000);
     });
 }
+
+// Copy share link
+function copyLink() {
+    const copyText = document.getElementById("share-link");
+    copyText.select();
+    copyText.setSelectionRange(0, 99999); /* For mobile devices */
+    navigator.clipboard.writeText(copyText.value).then(() => {
+        const toast = document.createElement('div');
+        toast.className = 'toast show';
+        toast.textContent = "Link copied!";
+        document.body.appendChild(toast);
+        setTimeout(() => document.body.removeChild(toast), 2000);
+    });
+}
+
