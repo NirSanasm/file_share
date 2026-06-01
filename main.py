@@ -51,8 +51,7 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "recaptcha_site_key": RECAPTCHA_SITE_KEY
     })
 
@@ -156,8 +155,7 @@ async def view_paste(request: Request, paste_id: str):
             is_image = True
             content = get_public_url(found_file)
 
-    return templates.TemplateResponse("view.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "view.html", {
         "content": content,
         "is_image": is_image,
         "id": paste_id,
